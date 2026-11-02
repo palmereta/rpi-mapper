@@ -1,0 +1,20 @@
+[Unit]
+Description=Mapper: renderer de video mapping (DRM/KMS + GLES2 + libmpv)
+# no espera la red: el proyector tiene que prender aunque no haya WiFi
+# systemd-user-sessions espera a network.target (WiFi, ~17 s): no ponerlo aca
+After=systemd-tmpfiles-setup.service
+Conflicts=getty@tty1.service
+StartLimitIntervalSec=0
+
+[Service]
+User=mapper
+Group=mapper
+SupplementaryGroups=video render audio
+ExecStart=/opt/mapper/bin/mapper
+# sale a proposito al cambiar de modo o reconectar el proyector: systemd lo levanta de nuevo
+Restart=always
+RestartSec=1
+Nice=-5
+
+[Install]
+WantedBy=multi-user.target

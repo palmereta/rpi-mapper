@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+src/mapper
+src/*.o
+*.mp4
+out/
+.DS_Store

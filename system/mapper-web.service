@@ -1,0 +1,18 @@
+[Unit]
+Description=Mapper: administracion web (puerto 80)
+After=network.target mapper.service
+
+[Service]
+User=mapper
+Group=mapper
+SupplementaryGroups=video gpio
+ExecStart=/usr/bin/python3 -I /opt/mapper/web/server.py
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+Restart=always
+RestartSec=2
+Nice=5
+# las conversiones de video corren como hijas de este servicio
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

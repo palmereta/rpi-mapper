@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapper</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header>
+  <strong class="logo">Mapper</strong>
+  <span id="estado" class="pill">conectando…</span>
+  <div class="toggles">
+    <button id="t-pattern" class="tog" title="Patrón de calibración en todas las superficies (P)">Patrón</button>
+    <button id="t-overlay" class="tog" title="Mostrar la cuadrícula y los puntos en el proyector (O)">Puntos</button>
+    <button id="t-blackout" class="tog warn" title="Apaga la imagen y el sonido; el video queda en pausa (B, o el botón físico)">Apagar</button>
+    <button id="t-shot" class="tog" title="Ver de fondo lo que está proyectando la Pi">Ver salida</button>
+  </div>
+</header>
+
+<main>
+  <section id="escena">
+    <div class="barra">
+      <div class="seg" id="modo-edit">
+        <button data-v="corners" class="on" title="Mover las 4 esquinas (perspectiva)">Esquinas</button>
+        <button data-v="grid" title="Deformar con la cuadrícula">Cuadrícula</button>
+      </div>
+      <span class="hint">Arrastrá un punto · adentro de la superficie la movés entera · flechas: 1 px (Shift 10 px, Alt 0,2 px) · Tab: siguiente punto · Ctrl+Z: deshacer</span>
+      <button id="deshacer" title="Deshacer (Ctrl+Z)">Deshacer</button>
+    </div>
+    <div id="lienzo-caja"><canvas id="lienzo"></canvas></div>
+    <div class="pad">
+      <span id="punto-info">Sin punto seleccionado</span>
+      <button data-d="-1,0">←</button><button data-d="0,-1">↑</button><button data-d="0,1">↓</button><button data-d="1,0">→</button>
+      <label><input type="checkbox" id="paso-fino"> paso fino</label>
+    </div>
+  </section>
+
+  <aside>
+    <nav class="tabs">
+      <button data-tab="sup" class="on">Superficie</button>
+      <button data-tab="cont">Contenido</button>
+      <button data-tab="sis">Sistema</button>
+    </nav>
+
+    <div class="tab on" id="tab-sup">
+      <div class="lista" id="superficies"></div>
+      <div class="fila">
+        <button id="s-nueva">+ Nueva</button>
+        <button id="s-dup">Duplicar</button>
+        <button id="s-borrar" class="peligro">Borrar</button>
+      </div>
+
+      <fieldset>
+        <legend>Superficie</legend>
+        <label>Nombre <input id="s-nombre" type="text"></label>
+        <label class="chk"><input id="s-activa" type="checkbox"> Visible</label>
+        <label>Contenido
+          <select id="s-contenido"><option value="video">Video / imagen</option><option value="pattern">Patrón</option><option value="color">Color plano</option></select>
+        </label>
+        <label id="s-color-fila">Color <input id="s-color" type="color"></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Cuadrícula</legend>
+        <div class="fila">
+          <label>Columnas <select id="g-cols"></select></label>
+          <label>Filas <select id="g-rows"></select></label>
+        </div>
+        <label>Interpolación
+          <select id="g-interp"><option value="bicubic">Suave (Catmull-Rom)</option><option value="bilinear">Lineal</option></select>
+        </label>
+        <div class="fila">
+          <button id="g-reset">Aplanar cuadrícula</button>
+          <button id="c-reset">Pantalla completa</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Transformar</legend>
+        <div class="fila">
+          <button data-tr="rot:-1">⟲ 1°</button><button data-tr="rot:1">⟳ 1°</button>
+          <button data-tr="rot:-90">⟲ 90°</button><button data-tr="rot:90">⟳ 90°</button>
+        </div>
+        <div class="fila">
+          <button data-tr="esc:0.98">Achicar</button><button data-tr="esc:1.02">Agrandar</button>
+          <button data-tr="flip:h">Espejo ↔</button><button data-tr="flip:v">Espejo ↕</button>
+          <button data-tr="centrar">Centrar</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Recorte del contenido</legend>
+        <p class="nota">Qué parte del video muestra esta superficie (para repartir un mismo video entre varias caras).</p>
+        <div class="rango"><span>Izq.</span><input type="range" id="src0" min="0" max="1" step="0.005"><output></output></div>
+        <div class="rango"><span>Arriba</span><input type="range" id="src1" min="0" max="1" step="0.005"><output></output></div>
+        <div class="rango"><span>Der.</span><input type="range" id="src2" min="0" max="1" step="0.005"><output></output></div>
+        <div class="rango"><span>Abajo</span><input type="range" id="src3" min="0" max="1" step="0.005"><output></output></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Bordes suaves</legend>
+        <div class="rango"><span>Izq.</span><input type="range" id="fe0" min="0" max="0.5" step="0.005"><output></output></div>
+        <div class="rango"><span>Arriba</span><input type="range" id="fe1" min="0" max="0.5" step="0.005"><output></output></div>
+        <div class="rango"><span>Der.</span><input type="range" id="fe2" min="0" max="0.5" step="0.005"><output></output></div>
+        <div class="rango"><span>Abajo</span><input type="range" id="fe3" min="0" max="0.5" step="0.005"><output></output></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Imagen</legend>
+        <div class="rango"><span>Opacidad</span><input type="range" id="a-opacity" min="0" max="1" step="0.01"><output></output></div>
+        <div class="rango"><span>Brillo</span><input type="range" id="a-brightness" min="0" max="2" step="0.01"><output></output></div>
+        <div class="rango"><span>Contraste</span><input type="range" id="a-contrast" min="0" max="2" step="0.01"><output></output></div>
+        <div class="rango"><span>Gamma</span><input type="range" id="a-gamma" min="0.3" max="3" step="0.01"><output></output></div>
+        <button id="a-reset">Valores originales</button>
+      </fieldset>
+    </div>
+
+    <div class="tab" id="tab-cont">
+      <fieldset>
+        <legend>Reproducción</legend>
+        <div id="ahora" class="nota">—</div>
+        <input type="range" id="pos" min="0" max="1" step="0.01" value="0">
+        <div class="fila">
+          <button data-pl="prev">⏮</button><button data-pl="pause">⏯</button><button data-pl="next">⏭</button><button data-pl="restart">Desde el inicio</button>
+        </div>
+        <div class="rango"><span>Volumen</span><input type="range" id="m-volume" min="0" max="100" step="1"><output></output></div>
+        <label class="chk"><input type="checkbox" id="m-mute"> Silencio</label>
+        <label>Salida de audio
+          <select id="m-audio"><option value="auto">Automática (HDMI, y si el proyector no tiene audio, jack)</option><option value="hdmi">HDMI (proyector)</option><option value="jack">Jack 3,5 mm (parlantes)</option></select>
+        </label>
+        <label class="chk"><input type="checkbox" id="m-loop"> Repetir la lista</label>
+        <label>Segundos por imagen <input type="number" id="m-image" min="1" max="3600" step="1"></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Lista de reproducción</legend>
+        <p class="nota">Un solo video queda en loop sin cortes.</p>
+        <ol id="lista"></ol>
+      </fieldset>
+
+      <fieldset>
+        <legend>Archivos</legend>
+        <label class="subir">
+          <input type="file" id="archivo" multiple accept="video/*,image/*">
+          <span>Subir videos o imágenes (se optimizan solos a 720p para la Pi)</span>
+        </label>
+        <div id="subidas"></div>
+        <div id="archivos"></div>
+      </fieldset>
+    </div>
+
+    <div class="tab" id="tab-sis">
+      <fieldset>
+        <legend>Salida al proyector</legend>
+        <label>Resolución <select id="o-mode"></select></label>
+        <button id="o-aplicar">Aplicar (reinicia el renderer)</button>
+        <p class="nota">720p es lo recomendado en una Pi 3: el contenido se reproduce a 720p de todas formas.</p>
+      </fieldset>
+      <fieldset>
+        <legend>Estado</legend>
+        <table id="info"></table>
+      </fieldset>
+      <fieldset>
+        <legend>Configuración</legend>
+        <div class="fila">
+          <button id="exportar">Exportar mapeo</button>
+          <label class="boton">Importar mapeo<input type="file" id="importar" accept=".json,application/json" hidden></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Equipo</legend>
+        <div class="fila">
+          <button id="sys-restart">Reiniciar renderer</button>
+          <button id="sys-reboot" class="peligro">Reiniciar la Pi</button>
+          <button id="sys-off" class="peligro">Apagar</button>
+        </div>
+      </fieldset>
+    </div>
+  </aside>
+</main>
+<script src="/app.js"></script>
+</body>
+</html>
